@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Редактор - Подсветка буквы Ё</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #f8f9fc;
+            color: #1e293b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .app {
+            max-width: 1400px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 14px 20px;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+            align-items: center;
+        }
+        .toolbar button {
+            background: white;
+            border: 1px solid #d1d9e6;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1e293b;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: 0.15s;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .toolbar button:hover {
+            background: #eef2ff;
+            border-color: #818cf8;
+            transform: translateY(-1px);
+        }
+        .toolbar .sep {
+            width: 1px;
+            height: 28px;
+            background: #d1d9e6;
+            margin: 0 4px;
+        }
+        .toolbar .right-buttons {
+            margin-left: auto;
+            display: flex;
+            gap: 6px;
+        }
+        .editor-panel {
+            display: flex;
+            flex-direction: row;
+            height: 580px;
+        }
+        .editor {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+            background: #ffffff;
+            position: relative;
+        }
+        
+        .editor-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            background: #fafcff;
+            overflow: hidden;
+        }
+        .editor-wrapper:focus-within {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+        
+        .editor-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px 24px;
+            font-size: 16px;
+            line-height: 1.7;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            color: transparent;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+            tab-size: 4;
+        }
+        
+        .editor-overlay .space-char {
+            color: #94a3b8;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .editor-overlay .tab-char {
+            color: #94a3b8;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .editor-overlay .tab-char::after {
+            content: '→';
+            color: #94a3b8;
+            opacity: 0.5;
+        }
+        
+        .editor-overlay .trailing-space {
+            color: #dc2626;
+            background: rgba(255, 0, 0, 0.15);
+            pointer-events: none;
+            border-radius: 2px;
+        }
+        
+        .editor-overlay .percent-space {
+            color: #dc2626;
+            background: rgba(255, 0, 0, 0.2);
+            pointer-events: none;
+            border-radius: 2px;
+            font-weight: bold;
+        }
+        
+        .editor-overlay .decimal-separator {
+            color: #dc2626;
+            background: rgba(255, 0, 0, 0.25);
+            pointer-events: none;
+            border-radius: 2px;
+            font-weight: bold;
+            padding: 0 1px;
+        }
+        
+        .editor-overlay .image-alt-error {
+            color: #dc2626;
+            background: rgba(255, 0, 0, 0.2);
+            pointer-events: none;
+            border-radius: 2px;
+            font-weight: bold;
+            padding: 0 2px;
+        }
+        
+        .editor-overlay .dash-warning {
+            color: #b8860b;
+            background: rgba(184, 134, 11, 0.2);
+            pointer-events: none;
+            border-radius: 2px;
+            font-weight: 500;
+            padding: 0 1px;
+        }
+        
+        .editor-overlay .quote-error {
+            color: #dc2626;
+            background: rgba(255, 0, 0, 0.2);
+            pointer-events: none;
+            border-radius: 2px;
+            font-weight: bold;
+            padding: 0 2px;
+        }
+        
+        .editor-overlay .quote-warning {
+            color: #b8860b;
+            background: rgba(184, 134, 11, 0.2);
+            pointer-events: none;
+            border-radius: 2px;
+            font-weight: 500;
+            padding: 0 2px;
+        }
+        
+        .editor-overlay .yo-error {
+            color: #dc2626;
+            background: rgba(255, 0, 0, 0.25);
+            pointer-events: none;
+            border-radius: 2px;
+            font-weight: bold;
+            padding: 0 2px;
+        }
+        
+        .editor textarea {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 20px 24px;
+            font-size: 16px;
+            line-height: 1.7;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            resize: none;
+            background: transparent;
+            color: #0f172a;
+            outline: none;
+            tab-size: 4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            letter-spacing: normal;
+        }
+        
+        .editor textarea::selection {
+            background: rgba(99, 102, 241, 0.2);
+        }
+        
+        .preview {
+            flex: 1;
+            padding: 20px 24px;
+            overflow-y: auto;
+            background: #fafcff;
+            border-left: 1px solid #e2e8f0;
+            font-size: 15px;
+            line-height: 1.7;
+            color: #1e293b;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .preview h1, .preview h2, .preview h3 { margin: 0.6em 0 0.3em; }
+        .preview p { margin: 0.6em 0; }
+        .preview code { background: #eef2ff; padding: 2px 6px; border-radius: 6px; font-size: 0.9em; }
+        .preview pre { background: #f1f5f9; padding: 16px; border-radius: 12px; overflow-x: auto; }
+        .preview blockquote { border-left: 4px solid #818cf8; padding-left: 18px; color: #334155; margin: 0.8em 0; }
+        .preview ul, .preview ol { padding-left: 24px; }
+        .preview img { max-width: 100%; border-radius: 12px; }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 24px;
+            font-size: 13px;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        .status-bar span {
+            display: flex;
+            gap: 20px;
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            min-width: 280px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            padding: 12px 16px;
+            z-index: 1000;
+            border: 1px solid #e2e8f0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .dropdown-content.show {
+            display: block;
+        }
+        .dropdown-content label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .dropdown-content label:hover {
+            background: #f1f5f9;
+        }
+        .dropdown-content .dropdown-header {
+            font-weight: 600;
+            padding: 4px 0 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .dropdown-content .dropdown-header button {
+            background: none;
+            border: none;
+            color: #818cf8;
+            cursor: pointer;
+            font-size: 13px;
+            padding: 0 8px;
+        }
+        .dropdown-content .dropdown-header button:hover {
+            text-decoration: underline;
+        }
+        .dropdown-content input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .dropdown-btn {
+            background: #818cf8 !important;
+            color: white !important;
+            border-color: #818cf8 !important;
+        }
+        .dropdown-btn:hover {
+            background: #6366f1 !important;
+            border-color: #6366f1 !important;
+        }
+
+        @media (max-width: 800px) {
+            .editor-panel {
+                flex-direction: column;
+                height: auto;
+            }
+            .preview {
+                border-left: none;
+                border-top: 1px solid #e2e8f0;
+                min-height: 260px;
+                max-height: 400px;
+            }
+            .editor-wrapper {
+                min-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="toolbar">
+        <button data-action="h1">H1</button>
+        <button data-action="h2">H2</button>
+        <button data-action="h3">H3</button>
+        <div class="sep"></div>
+        <button data-action="bold"><b>B</b></button>
+        <button data-action="italic"><i>I</i></button>
+        <button data-action="strike"><s>S</s></button>
+        <button data-action="code">`</button>
+        <button data-action="codeblock">```</button>
+        <div class="sep"></div>
+        <button data-action="link">🔗</button>
+        <button data-action="image">🖼️</button>
+        <button data-action="checkbox">☑️</button>
+        <button data-action="ol">1.</button>
+        <button data-action="ul">•</button>
+        <button data-action="quote">“</button>
+        <button data-action="hr">—</button>
+        <button data-action="table">▦</button>
+        <div class="sep"></div>
+        
+        <div class="dropdown">
+            <button id="dropdownToggle" class="dropdown-btn">⚙️ Настройки</button>
+            <div id="dropdownMenu" class="dropdown-content">
+                <div class="dropdown-header">
+                    <span>Опции отображения</span>
+                    <div>
+                        <button id="enableAllBtn">Включить все</button>
+                        <button id="disableAllBtn">Отключить все</button>
+                    </div>
+                </div>
+                <label><input type="checkbox" id="optSpaces" checked> Показывать пробелы/табуляцию</label>
+                <label><input type="checkbox" id="optTrailingSpaces" checked> Подсвечивать пробелы в конце строк</label>
+                <label><input type="checkbox" id="optPercentSpaces" checked> Подсвечивать пробелы между цифрами и %</label>
+                <label><input type="checkbox" id="optDecimalSeparator" checked> Подсвечивать неверный разделитель дробной части</label>
+                <label><input type="checkbox" id="optImageAlt" checked> Подсвечивать пустой alt в изображениях</label>
+                <label><input type="checkbox" id="optDashes" checked> Подсвечивать тире и дефисы (тускло-жёлтый)</label>
+                <label><input type="checkbox" id="optQuotes" checked> Подсвечивать кавычки "" (красный), «» (жёлтый)</label>
+                <label><input type="checkbox" id="optYo" checked> Подсвечивать букву Ё (красный)</label>
+                <label><input type="checkbox" id="optKeywords"> Ключевые слова (тускло-жёлтый)</label>
+                <label><input type="checkbox" id="optSpellCheck"> Орфография (красный)</label>
+                <label><input type="checkbox" id="optPunctuationCheck"> Пунктуация (синий)</label>
+            </div>
+        </div>
+        
+        <div class="right-buttons">
+            <button id="copyBtn">📋 Копировать</button>
+            <button id="clearBtn">🧹 Очистить</button>
+        </div>
+    </div>
+
+    <div class="editor-panel">
+        <div class="editor">
+            <div class="editor-wrapper">
+                <div class="editor-overlay" id="editorOverlay"></div>
+                <textarea id="markdownInput" placeholder="Введите Markdown..."></textarea>
+            </div>
+        </div>
+        <div class="preview" id="preview"></div>
+    </div>
+
+    <div class="status-bar">
+        <span id="stats">Символов: 0 &nbsp; Слов: 0</span>
+        <span>💾 автоматическое сохранение</span>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // === Элементы ===
+        const textarea = document.getElementById('markdownInput');
+        const overlay = document.getElementById('editorOverlay');
+        const preview = document.getElementById('preview');
+        const copyBtn = document.getElementById('copyBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const stats = document.getElementById('stats');
+        const dropdownToggle = document.getElementById('dropdownToggle');
+        const dropdownMenu = document.getElementById('dropdownMenu');
+        const enableAllBtn = document.getElementById('enableAllBtn');
+        const disableAllBtn = document.getElementById('disableAllBtn');
+
+        // === Опции ===
+        const options = {
+            spaces: document.getElementById('optSpaces'),
+            trailingSpaces: document.getElementById('optTrailingSpaces'),
+            percentSpaces: document.getElementById('optPercentSpaces'),
+            decimalSeparator: document.getElementById('optDecimalSeparator'),
+            imageAlt: document.getElementById('optImageAlt'),
+            dashes: document.getElementById('optDashes'),
+            quotes: document.getElementById('optQuotes'),
+            yo: document.getElementById('optYo'),
+            keywords: document.getElementById('optKeywords'),
+            spellCheck: document.getElementById('optSpellCheck'),
+            punctuationCheck: document.getElementById('optPunctuationCheck')
+        };
+
+        // === Функция для экранирования HTML ===
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // === Функция для создания overlay ===
+        function updateOverlay() {
+            const text = textarea.value;
+            
+            if (!options.spaces.checked && !options.trailingSpaces.checked && 
+                !options.percentSpaces.checked && !options.decimalSeparator.checked &&
+                !options.imageAlt.checked && !options.dashes.checked && 
+                !options.quotes.checked && !options.yo.checked) {
+                overlay.innerHTML = '';
+                return;
+            }
+            
+            let processedText = text;
+            let replacements = [];
+            
+            // 1. Находим букву Ё (если опция включена)
+            if (options.yo.checked) {
+                // Ищем букву Ё в любом регистре
+                const yoRegex = /[Ёё]/g;
+                let match;
+                while ((match = yoRegex.exec(text)) !== null) {
+                    replacements.push({
+                        start: match.index,
+                        end: match.index + 1,
+                        replacement: '<span class="yo-error">' + match[0] + '</span>'
+                    });
+                }
+            }
+            
+            // 2. Находим кавычки (если опция включена)
+            if (options.quotes.checked) {
+                // Обычные кавычки
+                const quoteRegex = /"/g;
+                let match;
+                while ((match = quoteRegex.exec(text)) !== null) {
+                    replacements.push({
+                        start: match.index,
+                        end: match.index + 1,
+                        replacement: '<span class="quote-error">"</span>'
+                    });
+                }
+                
+                // Кавычки-ёлочки
+                const angleRegex = /[«»]/g;
+                while ((match = angleRegex.exec(text)) !== null) {
+                    replacements.push({
+                        start: match.index,
+                        end: match.index + 1,
+                        replacement: '<span class="quote-warning">' + match[0] + '</span>'
+                    });
+                }
+            }
+            
+            // 3. Находим тире и дефисы (если опция включена)
+            if (options.dashes.checked) {
+                const dashRegex = /[—–-]/g;
+                let match;
+                while ((match = dashRegex.exec(text)) !== null) {
+                    replacements.push({
+                        start: match.index,
+                        end: match.index + 1,
+                        replacement: '<span class="dash-warning">' + match[0] + '</span>'
+                    });
+                }
+            }
+            
+            // Сортируем замены по убыванию стартовой позиции
+            replacements.sort((a, b) => b.start - a.start);
+            
+            // Применяем замены
+            let result = text;
+            for (let i = 0; i < replacements.length; i++) {
+                const r = replacements[i];
+                const before = result.substring(0, r.start);
+                const after = result.substring(r.end);
+                result = before + r.replacement + after;
+            }
+            
+            // Теперь экранируем результат, сохраняя HTML-теги
+            let finalHtml = '';
+            let currentPos = 0;
+            
+            // Находим все HTML-теги в результате
+            const tagRegex = /<[^>]*>/g;
+            let tagMatch;
+            let tagPositions = [];
+            
+            while ((tagMatch = tagRegex.exec(result)) !== null) {
+                tagPositions.push({
+                    start: tagMatch.index,
+                    end: tagMatch.index + tagMatch[0].length,
+                    content: tagMatch[0]
+                });
+            }
+            
+            // Обрабатываем текст, экранируя только не-HTML части
+            let lastEnd = 0;
+            for (let i = 0; i < tagPositions.length; i++) {
+                const tag = tagPositions[i];
+                // Экранируем текст до тега
+                finalHtml += escapeHtml(result.substring(lastEnd, tag.start));
+                // Добавляем тег как есть
+                finalHtml += tag.content;
+                lastEnd = tag.end;
+            }
+            // Добавляем остаток текста
+            finalHtml += escapeHtml(result.substring(lastEnd));
+            
+            // 4. Подсветка изображений с пустым alt
+            if (options.imageAlt.checked) {
+                let imageResult = '';
+                let currentPos2 = 0;
+                const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+                let match;
+                let matches = [];
+                
+                const originalText = text;
+                while ((match = imageRegex.exec(originalText)) !== null) {
+                    matches.push({
+                        fullMatch: match[0],
+                        alt: match[1],
+                        url: match[2],
+                        start: match.index,
+                        end: match.index + match[0].length
+                    });
+                }
+                
+                for (let i = matches.length - 1; i >= 0; i--) {
+                    const m = matches[i];
+                    const escapedMatch = escapeHtml(m.fullMatch);
+                    if (!m.alt || m.alt.trim() === '') {
+                        finalHtml = finalHtml.replace(escapedMatch, '<span class="image-alt-error">' + escapedMatch + '</span>');
+                    }
+                }
+            }
+            
+            // 5. Подсветка пробелов в конце строк
+            if (options.trailingSpaces.checked) {
+                finalHtml = finalHtml.replace(/( +)(?=\n|$)/g, function(match) {
+                    return match.split('').map(char => {
+                        if (char === ' ') {
+                            return '<span class="trailing-space">·</span>';
+                        }
+                        return char;
+                    }).join('');
+                });
+            }
+            
+            // 6. Подсветка пробелов между цифрами и %
+            if (options.percentSpaces.checked) {
+                finalHtml = finalHtml.replace(/(\d)(\s+)(%)/g, function(match, digit, spaces, percent) {
+                    const highlightedSpaces = spaces.split('').map(char => {
+                        if (char === ' ') {
+                            return '<span class="percent-space">·</span>';
+                        }
+                        return char;
+                    }).join('');
+                    return digit + highlightedSpaces + percent;
+                });
+            }
+            
+            // 7. Подсветка неверного разделителя дробной части
+            if (options.decimalSeparator.checked) {
+                finalHtml = finalHtml.replace(/(\d+)([,;:])(\d+)/g, function(match, before, separator, after) {
+                    return before + '<span class="decimal-separator">' + separator + '</span>' + after;
+                });
+            }
+            
+            // 8. Подсветка пробелов и табуляции
+            if (options.spaces.checked) {
+                const lines = finalHtml.split('\n');
+                const processedLines = lines.map(line => {
+                    const hasSpecial = line.includes('trailing-space') || 
+                                     line.includes('percent-space') || 
+                                     line.includes('decimal-separator') ||
+                                     line.includes('image-alt-error') ||
+                                     line.includes('dash-warning') ||
+                                     line.includes('quote-error') ||
+                                     line.includes('quote-warning') ||
+                                     line.includes('yo-error');
+                    
+                    if (hasSpecial) {
+                        const parts = line.split(/(<span class="(?:trailing-space|percent-space|decimal-separator|image-alt-error|dash-warning|quote-error|quote-warning|yo-error)">.*?<\/span>)/g);
+                        return parts.map(part => {
+                            if (part.startsWith('<span class="trailing-space">') || 
+                                part.startsWith('<span class="percent-space">') ||
+                                part.startsWith('<span class="decimal-separator">') ||
+                                part.startsWith('<span class="image-alt-error">') ||
+                                part.startsWith('<span class="dash-warning">') ||
+                                part.startsWith('<span class="quote-error">') ||
+                                part.startsWith('<span class="quote-warning">') ||
+                                part.startsWith('<span class="yo-error">')) {
+                                return part;
+                            } else {
+                                return part.replace(/ /g, '<span class="space-char">·</span>');
+                            }
+                        }).join('');
+                    } else {
+                        return line.replace(/ /g, '<span class="space-char">·</span>');
+                    }
+                });
+                finalHtml = processedLines.join('\n');
+                
+                finalHtml = finalHtml.replace(/\t/g, '<span class="tab-char">→   </span>');
+            }
+            
+            finalHtml = finalHtml.replace(/\n/g, '<br>');
+            
+            overlay.innerHTML = finalHtml;
+            
+            overlay.scrollTop = textarea.scrollTop;
+            overlay.scrollLeft = textarea.scrollLeft;
+        }
+
+        // === Рендеринг Markdown ===
+        function renderMarkdown(text) {
+            let html = text;
+            
+            html = html.replace(/```([\s\S]*?)```/g, (match, code) => {
+                return `<pre><code>${escapeHtml(code.trim())}</code></pre>`;
+            });
+            
+            html = html.replace(/`([^`]+)`/g, (match, code) => {
+                return `<code>${escapeHtml(code)}</code>`;
+            });
+            
+            html = html.replace(/^###### (.*$)/gm, '<h6>$1</h6>');
+            html = html.replace(/^##### (.*$)/gm, '<h5>$1</h5>');
+            html = html.replace(/^#### (.*$)/gm, '<h4>$1</h4>');
+            html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+            html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+            html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+            
+            html = html.replace(/^- \[x\] (.*$)/gm, '<div><input type="checkbox" checked disabled> $1</div>');
+            html = html.replace(/^- \[ \] (.*$)/gm, '<div><input type="checkbox" disabled> $1</div>');
+            
+            html = html.replace(/^---$/gm, '<hr>');
+            
+            html = html.replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>');
+            
+            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            
+            html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+            
+            html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            html = html.replace(/__(.*?)__/g, '<b>$1</b>');
+            
+            html = html.replace(/\*(.*?)\*/g, '<i>$1</i>');
+            html = html.replace(/_(.*?)_/g, '<i>$1</i>');
+            
+            html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<b><i>$1</i></b>');
+            html = html.replace(/___(.*?)___/g, '<b><i>$1</i></b>');
+            
+            html = html.replace(/~~(.*?)~~/g, '<s>$1</s>');
+            
+            html = html.replace(/^- (.*$)/gm, '<li>$1</li>');
+            html = html.replace(/^\* (.*$)/gm, '<li>$1</li>');
+            html = html.replace(/^\d+\. (.*$)/gm, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+            
+            const lines = html.split('\n');
+            let inTable = false;
+            let tableHtml = '';
+            let newLines = [];
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                if (line.includes('|') && !line.startsWith('<')) {
+                    if (!inTable) {
+                        tableHtml = '<table>';
+                        inTable = true;
+                    }
+                    let cells = line.split('|').filter(c => c.trim() !== '');
+                    if (cells.length > 0 && cells.every(c => /^-+$/.test(c.trim()))) {
+                        continue;
+                    }
+                    tableHtml += '<tr>';
+                    cells.forEach(cell => {
+                        tableHtml += `<td>${cell.trim()}</td>`;
+                    });
+                    tableHtml += '</tr>';
+                } else {
+                    if (inTable) {
+                        tableHtml += '</table>';
+                        newLines.push(tableHtml);
+                        inTable = false;
+                    }
+                    newLines.push(line);
+                }
+            }
+            if (inTable) {
+                tableHtml += '</table>';
+                newLines.push(tableHtml);
+            }
+            html = newLines.join('\n');
+            
+            html = html.replace(/\n\n/g, '</p><p>');
+            html = '<p>' + html + '</p>';
+            html = html.replace(/<p><pre>/g, '<pre>');
+            html = html.replace(/<\/pre><\/p>/g, '</pre>');
+            html = html.replace(/<p><ul>/g, '<ul>');
+            html = html.replace(/<\/ul><\/p>/g, '</ul>');
+            html = html.replace(/<p><ol>/g, '<ol>');
+            html = html.replace(/<\/ol><\/p>/g, '</ol>');
+            html = html.replace(/<p><blockquote>/g, '<blockquote>');
+            html = html.replace(/<\/blockquote><\/p>/g, '</blockquote>');
+            html = html.replace(/<p><h/g, '<h');
+            html = html.replace(/<\/h\d><\/p>/g, (match) => match.replace('</p>', ''));
+            html = html.replace(/<p><hr><\/p>/g, '<hr>');
+            html = html.replace(/<p><div/g, '<div');
+            html = html.replace(/<\/div><\/p>/g, '</div>');
+            
+            return html;
+        }
+
+        // === Обновление предпросмотра ===
+        function updatePreview() {
+            const text = textarea.value;
+            updateOverlay();
+            const rendered = renderMarkdown(text);
+            preview.innerHTML = rendered;
+            
+            const chars = text.length;
+            const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+            stats.innerHTML = `Символов: ${chars} &nbsp; Слов: ${words}`;
+            
+            localStorage.setItem('markdownEditorContent', text);
+        }
+
+        // === Синхронизация скролла ===
+        textarea.addEventListener('scroll', function() {
+            overlay.scrollTop = this.scrollTop;
+            overlay.scrollLeft = this.scrollLeft;
+        });
+
+        // === Применение форматирования ===
+        function wrapSelection(prefix, suffix, template) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selected = textarea.value.substring(start, end);
+            let newText = '';
+            let cursorPos = 0;
+
+            if (selected.length > 0) {
+                newText = prefix + selected + suffix;
+                cursorPos = start + newText.length;
+            } else {
+                newText = template;
+                cursorPos = start + prefix.length;
+            }
+
+            const before = textarea.value.substring(0, start);
+            const after = textarea.value.substring(end);
+            textarea.value = before + newText + after;
+            textarea.focus();
+            if (selected.length > 0) {
+                textarea.selectionStart = start;
+                textarea.selectionEnd = start + newText.length;
+            } else {
+                textarea.selectionStart = cursorPos;
+                textarea.selectionEnd = cursorPos;
+            }
+            updatePreview();
+        }
+
+        function handleAction(action) {
+            switch (action) {
+                case 'h1': wrapSelection('# ', '', '# текст'); break;
+                case 'h2': wrapSelection('## ', '', '## текст'); break;
+                case 'h3': wrapSelection('### ', '', '### текст'); break;
+                case 'bold': wrapSelection('**', '**', '**жирный**'); break;
+                case 'italic': wrapSelection('*', '*', '*курсив*'); break;
+                case 'strike': wrapSelection('~~', '~~', '~~зачеркнутый~~'); break;
+                case 'code': wrapSelection('`', '`', '`код`'); break;
+                case 'codeblock': wrapSelection('```\n', '\n```', '```\nблок кода\n```'); break;
+                case 'link': wrapSelection('[', '](https://)', '[ссылка](https://)'); break;
+                case 'image': wrapSelection('![', '](https://)', '![alt](https://)'); break;
+                case 'checkbox': wrapSelection('- [ ] ', '', '- [ ] задача'); break;
+                case 'ol': wrapSelection('1. ', '', '1. пункт'); break;
+                case 'ul': wrapSelection('- ', '', '- пункт'); break;
+                case 'quote': wrapSelection('> ', '', '> цитата'); break;
+                case 'hr': wrapSelection('\n---\n', '', '---'); break;
+                case 'table': wrapSelection('\n| заголовок | заголовок |\n| --- | --- |\n| ячейка | ячейка |\n', '', '| заголовок | заголовок |\n| --- | --- |\n| ячейка | ячейка |\n'); break;
+                default: break;
+            }
+        }
+
+        // === События ===
+        document.querySelectorAll('[data-action]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const action = e.currentTarget.dataset.action;
+                handleAction(action);
+            });
+        });
+
+        dropdownToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdownMenu.classList.toggle('show');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!dropdownToggle.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.classList.remove('show');
+            }
+        });
+
+        enableAllBtn.addEventListener('click', () => {
+            Object.values(options).forEach(opt => opt.checked = true);
+            updatePreview();
+        });
+
+        disableAllBtn.addEventListener('click', () => {
+            Object.values(options).forEach(opt => opt.checked = false);
+            updatePreview();
+        });
+
+        Object.values(options).forEach(opt => {
+            opt.addEventListener('change', updatePreview);
+        });
+
+        copyBtn.addEventListener('click', async () => {
+            const text = textarea.value;
+            try {
+                await navigator.clipboard.writeText(text);
+                copyBtn.textContent = '✅ Готово!';
+                setTimeout(() => {
+                    copyBtn.innerHTML = '📋 Копировать';
+                }, 1500);
+            } catch {
+                textarea.select();
+                document.execCommand('copy');
+                copyBtn.textContent = '✅ Скопировано';
+                setTimeout(() => { copyBtn.innerHTML = '📋 Копировать'; }, 1500);
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Очистить весь текст?')) {
+                textarea.value = '';
+                updatePreview();
+            }
+        });
+
+        textarea.addEventListener('input', updatePreview);
+
+        // === Инициализация ===
+        const saved = localStorage.getItem('markdownEditorContent');
+        if (saved !== null) {
+            textarea.value = saved;
+        } else {
+            textarea.value = `# Заголовок H1
+## Заголовок H2
+### Заголовок H3
+
+**Выделите текст** и нажмите кнопку, чтобы применить форматирование.
+
+Примеры подсветки буквы Ё:
+
+1. Буква Ё (ПОДСВЕЧИВАЕТСЯ красным):
+   - Ёлка
+   - ёжик
+   - подъём
+   - мёд
+   - всё
+   - Её
+
+2. Обычные кавычки (ПОДСВЕЧИВАЮТСЯ красным):
+   - "пример"
+   - Он сказал: "Привет!"
+
+3. Кавычки-ёлочки (ПОДСВЕЧИВАЮТСЯ жёлтым):
+   - «пример»
+   - Он сказал: «Привет!»
+
+4. Тире и дефисы (тускло-жёлтый):
+   - Дефис: короткий-короткий
+   - Среднее тире: пример – пример
+   - Длинное тире: пример — пример
+
+5. Изображения с пустым alt (красный):
+   - ![](image.jpg)
+
+6. Пробелы в конце строк:
+   - С пробелами в конце   
+
+Обычный текст с пробелами.
+
+[Ссылка на GitHub](https://github.com)`;
+        }
+
+        updatePreview();
+    })();
+</script>
+</body>
+</html>
